@@ -42,14 +42,35 @@ import org.xml.sax.SAXParseException;
 
 /**
  * @author Clinton Begin
- * @author Kazuki Shimizu
+ * @authopublic XPathParser(String xml, boolean validation, Properties variables, EntityResolver entityResolver) {r Kazuki Shimizu
  */
+/**
+ * @Description
+ * org.apache.ibatis.parsing.XPathParser
+ * 基于 Java XPath 解析器，用于解析 MyBatis mybatis-config.xml 和 **Mapper.xml 等 XML 配置文件
+ **/
 public class XPathParser {
 
+  //XML被解析后，生成Document对象
   private final Document document;
+  //是否校验XML
   private boolean validation;
+  //XML解析器
   private EntityResolver entityResolver;
+
+  /**
+   * @Description  用来替换需要动态配置的值
+   * <dataSource type="POOLED">
+   *   <property name="driver" value="${driver}"/>
+   *   <property name="url" value="${url}"/>
+   *   <property name="username" value="${username}"/>
+   *   <property name="password" value="${password}"/>
+   * </dataSource>
+   *
+   * 变量值的来源有2处： 1. Java Properties文件中配置 2.Mybatis的<property />
+   **/
   private Properties variables;
+  //javax.xml.xpath.XPath 对象，用于查询 XML 中的节点和元素
   private XPath xpath;
 
   public XPathParser(String xml) {
@@ -226,7 +247,12 @@ public class XPathParser {
       throw new BuilderException("Error evaluating XPath.  Cause: " + e, e);
     }
   }
-
+  /**
+   * 创建 Document 对象
+   *
+   * @param inputSource XML 的 InputSource 对象
+   * @return Document 对象
+   */
   private Document createDocument(InputSource inputSource) {
     // important: this must only be called AFTER common constructor
     try {
@@ -258,6 +284,7 @@ public class XPathParser {
           // NOP
         }
       });
+      //XML解析
       return builder.parse(inputSource);
     } catch (Exception e) {
       throw new BuilderException("Error creating document instance.  Cause: " + e, e);
