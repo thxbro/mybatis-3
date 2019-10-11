@@ -162,7 +162,9 @@ public class XPathParser {
   }
 
   public String evalString(Object root, String expression) {
+    //获取节点值
     String result = (String) evaluate(expression, root, XPathConstants.STRING);
+    //基于variables替换动态值，如果result为动态值
     result = PropertyParser.parse(result, variables);
     return result;
   }
