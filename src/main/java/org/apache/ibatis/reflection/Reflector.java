@@ -100,6 +100,7 @@ public class Reflector {
     // 初始化 setMethods 和 setTypes ，通过遍历 setting 方法
     addSetMethods(clazz);
     //初始化 getMethods + getTypes 和 setMethods + setTypes ，通过遍历 fields 属性。
+    //作为getMethods和setMethods的补充，避免有些field 不存在对应的get set方法
     addFields(clazz);
     //初始化 readablePropertyNames、writeablePropertyNames、caseInsensitivePropertyMap 属性
     readablePropertyNames = getMethods.keySet().toArray(new String[0]);
@@ -125,28 +126,36 @@ public class Reflector {
       .forEach(m -> addMethodConflict(conflictingGetters, PropertyNamer.methodToProperty(m.getName()), m));
     resolveGetterConflicts(conflictingGetters);
   }
-
+  //解决 getting 冲突方法。最终，一个属性，只保留一个对应的方法
   private void resolveGetterConflicts(Map<String, List<Method>> conflictingGetters) {
+    // 遍历每个属性，查找其最匹配的方法。因为子类可以覆写父类的方法，所以一个属性，可能对应多个 getting 方法
     for (Entry<String, List<Method>> entry : conflictingGetters.entrySet()) {
-      Method winner = null;
+      Method winner = null; // 最匹配的方法
       String propName = entry.getKey();
       boolean isAmbiguous = false;
       for (Method candidate : entry.getValue()) {
+        // winner 为空，说明 candidate 为最匹配的方法
         if (winner == null) {
           winner = candidate;
           continue;
         }
+        //基于返回类型比较
         Class<?> winnerType = winner.getReturnType();
         Class<?> candidateType = candidate.getReturnType();
+        // 类型相同
         if (candidateType.equals(winnerType)) {
           if (!boolean.class.equals(candidateType)) {
             isAmbiguous = true;
             break;
-          } else if (candidate.getName().startsWith("is")) {
+          } else if (candidate.getName().startsWith("is")) {  //选择 boolean 类型的 is 方法
             winner = candidate;
           }
+
+          // 不符合选择子类
         } else if (candidateType.isAssignableFrom(winnerType)) {
           // OK getter type is descendant
+          // 符合选择子类。因为子类可以修改放大返回值。
+          // 例如，父类的一个方法的返回值为 List ，子类对该方法的返回值可以覆写为 ArrayList
         } else if (winnerType.isAssignableFrom(candidateType)) {
           winner = candidate;
         } else {
@@ -186,13 +195,17 @@ public class Reflector {
   }
 
   private void resolveSetterConflicts(Map<String, List<Method>> conflictingSetters) {
+
     for (String propName : conflictingSetters.keySet()) {
+      //// 遍历每个属性，查找其最匹配的方法。因为子类可以覆写父类的方法，所以一个属性，可能对应多个 setting 方法
       List<Method> setters = conflictingSetters.get(propName);
       Class<?> getterType = getTypes.get(propName);
       boolean isGetterAmbiguous = getMethods.get(propName) instanceof AmbiguousMethodInvoker;
       boolean isSetterAmbiguous = false;
       Method match = null;
+      //遍历属性对应的 setting 方法
       for (Method setter : setters) {
+        // 和 getterType 相同，直接使用
         if (!isGetterAmbiguous && setter.getParameterTypes()[0].equals(getterType)) {
           // should be the best match
           match = setter;
@@ -239,19 +252,21 @@ public class Reflector {
 
   private Class<?> typeToClass(Type src) {
     Class<?> result = null;
+    // 普通类型，直接使用类
     if (src instanceof Class) {
       result = (Class<?>) src;
-    } else if (src instanceof ParameterizedType) {
+    } else if (src instanceof ParameterizedType) {  // 泛型类型，使用泛型
       result = (Class<?>) ((ParameterizedType) src).getRawType();
-    } else if (src instanceof GenericArrayType) {
+    } else if (src instanceof GenericArrayType) {  // 泛型数组，获得具体类
       Type componentType = ((GenericArrayType) src).getGenericComponentType();
-      if (componentType instanceof Class) {
+      if (componentType instanceof Class) {   // 普通类型，直接使用类
         result = Array.newInstance((Class<?>) componentType, 0).getClass();
       } else {
         Class<?> componentClass = typeToClass(componentType);
         result = Array.newInstance(componentClass, 0).getClass();
       }
     }
+    // 都不符合，使用 Object 类
     if (result == null) {
       result = Object.class;
     }
@@ -274,11 +289,12 @@ public class Reflector {
         addGetField(field);
       }
     }
+    //递归 处理父类
     if (clazz.getSuperclass() != null) {
       addFields(clazz.getSuperclass());
     }
   }
-
+  //添加对应属性的set和参数类型
   private void addSetField(Field field) {
     if (isValidPropertyName(field.getName())) {
       setMethods.put(field.getName(), new SetFieldInvoker(field));

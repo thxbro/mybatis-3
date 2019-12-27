@@ -48,13 +48,16 @@ public class DefaultObjectFactory implements ObjectFactory, Serializable {
   @SuppressWarnings("unchecked")
   @Override
   public <T> T create(Class<T> type, List<Class<?>> constructorArgTypes, List<Object> constructorArgs) {
+    //获取需要创建的类
     Class<?> classToCreate = resolveInterface(type);
     // we know types are assignable
+    //创建指定的类
     return (T) instantiateClass(classToCreate, constructorArgTypes, constructorArgs);
   }
 
   private  <T> T instantiateClass(Class<T> type, List<Class<?>> constructorArgTypes, List<Object> constructorArgs) {
     try {
+      //无参构造
       Constructor<T> constructor;
       if (constructorArgTypes == null || constructorArgs == null) {
         constructor = type.getDeclaredConstructor();
@@ -69,6 +72,7 @@ public class DefaultObjectFactory implements ObjectFactory, Serializable {
           }
         }
       }
+      //使用特定构造方法，创建指定类的对象
       constructor = type.getDeclaredConstructor(constructorArgTypes.toArray(new Class[constructorArgTypes.size()]));
       try {
         return constructor.newInstance(constructorArgs.toArray(new Object[constructorArgs.size()]));
